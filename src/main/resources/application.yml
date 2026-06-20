@@ -1,0 +1,14 @@
+spring:
+  application:
+    name: franchise-management-api
+  data:
+    mongodb:
+      uri: ${MONGODB_URI:mongodb://localhost:27017/franchises_db}
+      database: franchises_db
+
+server:
+  port: 8080
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
