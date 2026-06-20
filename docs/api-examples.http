@@ -1,0 +1,100 @@
+### Franchises API — ejemplos de uso
+### Compatible con el HTTP Client de IntelliJ y la extensión REST Client de VS Code.
+### Ejecuta las peticiones en orden: las variables se rellenan desde las respuestas.
+
+@host = http://localhost:8080
+
+### 1. Crear franquicia
+# @name createFranchise
+POST {{host}}/api/v1/franchises
+Content-Type: application/json
+
+{
+  "name": "Franquicia Norte"
+}
+
+> {% client.global.set("franchiseId", response.body.id); %}
+
+### 2. Agregar sucursal
+# @name addBranch
+POST {{host}}/api/v1/franchises/{{franchiseId}}/branches
+Content-Type: application/json
+
+{
+  "name": "Sucursal Centro"
+}
+
+> {% client.global.set("branchId", response.body.id); %}
+
+### 3. Agregar producto
+# @name addProduct
+POST {{host}}/api/v1/franchises/{{franchiseId}}/branches/{{branchId}}/products
+Content-Type: application/json
+
+{
+  "name": "Producto A",
+  "stock": 50
+}
+
+> {% client.global.set("productId", response.body.id); %}
+
+### 4. Agregar un segundo producto (mayor stock)
+POST {{host}}/api/v1/franchises/{{franchiseId}}/branches/{{branchId}}/products
+Content-Type: application/json
+
+{
+  "name": "Producto B",
+  "stock": 120
+}
+
+### 5. Modificar stock
+PATCH {{host}}/api/v1/franchises/{{franchiseId}}/branches/{{branchId}}/products/{{productId}}/stock
+Content-Type: application/json
+
+{
+  "stock": 200
+}
+
+### 6. Producto con más stock por sucursal
+GET {{host}}/api/v1/franchises/{{franchiseId}}/branches/top-stock-products
+
+### 7. Renombrar franquicia
+PATCH {{host}}/api/v1/franchises/{{franchiseId}}/name
+Content-Type: application/json
+
+{
+  "name": "Franquicia Norte Renombrada"
+}
+
+### 8. Renombrar sucursal
+PATCH {{host}}/api/v1/franchises/{{franchiseId}}/branches/{{branchId}}/name
+Content-Type: application/json
+
+{
+  "name": "Sucursal Centro Renombrada"
+}
+
+### 9. Renombrar producto
+PATCH {{host}}/api/v1/franchises/{{franchiseId}}/branches/{{branchId}}/products/{{productId}}/name
+Content-Type: application/json
+
+{
+  "name": "Producto A Renombrado"
+}
+
+### 10. Eliminar producto
+DELETE {{host}}/api/v1/franchises/{{franchiseId}}/branches/{{branchId}}/products/{{productId}}
+
+### --- Casos de error ---
+
+### Stock negativo -> 400
+POST {{host}}/api/v1/franchises/{{franchiseId}}/branches/{{branchId}}/products
+Content-Type: application/json
+
+{
+  "name": "Inválido",
+  "stock": -5
+}
+
+### Franquicia inexistente -> 404
+GET {{host}}/api/v1/franchises/inexistente/branches/top-stock-products
