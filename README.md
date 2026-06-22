@@ -188,6 +188,7 @@ Formato estándar (`GlobalExceptionHandler`):
 | Franquicia / sucursal / producto inexistente         | 404  |
 | Validación de body (nombre vacío, stock null/negativo) | 400 |
 | Regla de negocio violada (stock negativo en dominio) | 400  |
+| Modificación concurrente sobre un agregado desactualizado | 409 |
 | Error inesperado                                     | 500  |
 
 ---
@@ -240,7 +241,17 @@ curl -X PATCH http://localhost:8080/api/v1/franchises/<franchiseId>/name \
 ```
 
 La suite cubre dominio, servicio (con el puerto mockeado), mapeo de persistencia y la capa web
-(`@WebMvcTest` + MockMvc). No requiere una instancia de MongoDB en ejecución.
+(`@WebMvcTest` + MockMvc). Los tests unitarios **no requieren** una instancia de MongoDB.
+
+Además hay:
+
+- **Tests de integración con Testcontainers** (`FranchisePersistenceIntegrationTest`): levantan un
+  MongoDB real y verifican el round-trip del agregado, el incremento de `version`, el bloqueo
+  optimista (409) y la creación de los índices embebidos. Se **omiten automáticamente** si Docker no
+  está disponible (`@Testcontainers(disabledWithoutDocker = true)`), así que `./mvnw test` sigue
+  pasando sin Docker.
+- **Test de arquitectura con ArchUnit** (`ArchitectureTest`): falla el build si el dominio depende de
+  Spring/Mongo o de las capas externas, o si la capa de aplicación alcanza la de infraestructura.
 
 ---
 
@@ -258,6 +269,13 @@ La suite cubre dominio, servicio (con el puerto mockeado), mapeo de persistencia
 - **Jerarquía `ResourceNotFoundException`.** Un único handler mapea los tres 404.
 - **DTOs como `records`** y **constructor injection**; el controller no contiene lógica de negocio.
 - **IDs:** la franquicia usa el `ObjectId` que genera Mongo; sucursales y productos usan UUID.
+- **Bloqueo optimista (`@Version`).** El agregado lleva una `version` que viaja en el round-trip de
+  persistencia; Spring Data condiciona cada actualización a la versión almacenada, de modo que una
+  escritura concurrente sobre un agregado desactualizado falla con 409 en vez de pisar el cambio
+  (lost update).
+- **Índices sobre los ids embebidos** (`branches._id`, `branches.products._id`), declarados en el
+  documento raíz. Su creación es *opt-in* por entorno (`MONGODB_AUTO_INDEX=true`) para no forzar una
+  conexión a la BD en el arranque; el test de integración los verifica.
 
 ---
 
@@ -278,7 +296,12 @@ build(iac): add Terraform for MongoDB Atlas and AWS App Runner deployment
 
 ## Posibles mejoras futuras
 
-- Paginación/listado de franquicias.
-- Tests de integración con Testcontainers (MongoDB real).
-- Índices y manejo de concurrencia optimista (`@Version`) sobre el documento.
-- Perfiles `dev`/`prod` y configuración de seguridad.
+- **Escrituras atómicas** sobre el subcampo (`$set`/`$inc` con filtros posicionales) en lugar de
+  reescribir el documento completo en cada mutación, para reducir la amplificación de escritura.
+- **`top-stock-products` vía aggregation pipeline** (`$unwind` + `$group`/`$sort`) para que el cálculo
+  ocurra en Mongo y no cargando el agregado completo en memoria.
+- **Paginación/listado de franquicias** con proyecciones.
+- **Separación de agregados** (Branch/Product en colecciones propias con referencia) y, eventualmente,
+  CQRS + eventos de dominio, cuando un sub-array sea no acotado o de muy alta escritura (rompe el
+  techo de 16 MB del documento). Criterio: embebido mientras el tamaño por franquicia sea acotado.
+- **Perfiles `dev`/`prod`**, observabilidad (Actuator + Micrometer) y configuración de seguridad.

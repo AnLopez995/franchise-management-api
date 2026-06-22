@@ -4,6 +4,7 @@ import com.franchise.management.domain.exception.BusinessValidationException;
 import com.franchise.management.domain.exception.ResourceNotFoundException;
 import com.franchise.management.infrastructure.web.dto.response.ErrorResponse;
 import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
@@ -30,6 +31,13 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleBusinessValidation(BusinessValidationException ex,
                                                                   HttpServletRequest request) {
         return build(HttpStatus.BAD_REQUEST, ex.getMessage(), request);
+    }
+
+    @ExceptionHandler(OptimisticLockingFailureException.class)
+    public ResponseEntity<ErrorResponse> handleOptimisticLocking(OptimisticLockingFailureException ex,
+                                                                 HttpServletRequest request) {
+        return build(HttpStatus.CONFLICT,
+                "The franchise was modified concurrently; reload and retry.", request);
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

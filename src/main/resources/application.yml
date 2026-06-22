@@ -5,6 +5,11 @@ spring:
     mongodb:
       uri: ${MONGODB_URI:mongodb://localhost:27017/franchises_db}
       database: franchises_db
+      # Index creation is opt-in per environment: enabling it makes the app build the declared
+      # indexes (branches.id, branches.products.id) on startup, which also forces a DB connection
+      # at boot. Keep it off by default so startup stays lazy; enable where indexes should be
+      # managed by the app (e.g. MONGODB_AUTO_INDEX=true).
+      auto-index-creation: ${MONGODB_AUTO_INDEX:false}
 
 server:
   port: 8080

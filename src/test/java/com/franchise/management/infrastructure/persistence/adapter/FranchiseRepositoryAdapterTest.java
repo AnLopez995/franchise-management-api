@@ -38,7 +38,7 @@ class FranchiseRepositoryAdapterTest {
                 .thenAnswer(invocation -> {
                     FranchiseDocument input = invocation.getArgument(0);
                     return new FranchiseDocument("generated-id", input.name(),
-                            input.branches(), input.createdAt(), input.updatedAt());
+                            input.branches(), input.createdAt(), input.updatedAt(), 0L);
                 });
 
         Franchise result = adapter.save(franchise);
@@ -54,7 +54,7 @@ class FranchiseRepositoryAdapterTest {
     void findByIdReturnsMappedDomainWhenPresent() {
         LocalDateTime now = LocalDateTime.now();
         FranchiseDocument document = new FranchiseDocument("f1", "Franquicia Norte",
-                List.of(), now, now);
+                List.of(), now, now, 0L);
         when(mongoRepository.findById("f1")).thenReturn(Optional.of(document));
 
         Optional<Franchise> result = adapter.findById("f1");

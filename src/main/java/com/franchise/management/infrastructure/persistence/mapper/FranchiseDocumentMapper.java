@@ -27,7 +27,8 @@ public final class FranchiseDocumentMapper {
                 franchise.getName(),
                 branches,
                 franchise.getCreatedAt(),
-                franchise.getUpdatedAt());
+                franchise.getUpdatedAt(),
+                franchise.getVersion());
     }
 
     public static Franchise toDomain(FranchiseDocument document) {
@@ -39,7 +40,8 @@ public final class FranchiseDocumentMapper {
                 document.name(),
                 branches,
                 document.createdAt(),
-                document.updatedAt());
+                document.updatedAt(),
+                document.version());
     }
 
     private static BranchDocument toBranchDocument(Branch branch) {

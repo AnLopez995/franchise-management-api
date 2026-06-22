@@ -6,6 +6,8 @@ import com.franchise.management.domain.model.Product;
 import com.franchise.management.infrastructure.persistence.document.FranchiseDocument;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 class FranchiseDocumentMapperTest {
@@ -41,10 +43,10 @@ class FranchiseDocumentMapperTest {
         franchise.addBranch(branch);
 
         FranchiseDocument document = FranchiseDocumentMapper.toDocument(franchise);
-        // Simulate the id Mongo would assign on persistence.
+        // Simulate the id and version Mongo would assign on persistence.
         FranchiseDocument persisted = new FranchiseDocument(
                 "generated-id", document.name(), document.branches(),
-                document.createdAt(), document.updatedAt());
+                document.createdAt(), document.updatedAt(), 3L);
 
         Franchise restored = FranchiseDocumentMapper.toDomain(persisted);
 
@@ -59,5 +61,27 @@ class FranchiseDocumentMapperTest {
         Product restoredProduct = restoredBranch.getProduct(product.getId());
         assertThat(restoredProduct.getName()).isEqualTo("Producto A");
         assertThat(restoredProduct.getStock()).isEqualTo(50);
+    }
+
+    @Test
+    void newAggregateMapsToDocumentWithNullVersion() {
+        Franchise franchise = Franchise.create("Franquicia Norte");
+
+        FranchiseDocument document = FranchiseDocumentMapper.toDocument(franchise);
+
+        assertThat(document.version()).isNull();
+    }
+
+    @Test
+    void versionSurvivesRoundTrip() {
+        Franchise franchise = Franchise.create("Franquicia Norte");
+
+        FranchiseDocument persisted = new FranchiseDocument(
+                "generated-id", franchise.getName(), List.of(),
+                franchise.getCreatedAt(), franchise.getUpdatedAt(), 7L);
+        Franchise restored = FranchiseDocumentMapper.toDomain(persisted);
+
+        assertThat(restored.getVersion()).isEqualTo(7L);
+        assertThat(FranchiseDocumentMapper.toDocument(restored).version()).isEqualTo(7L);
     }
 }

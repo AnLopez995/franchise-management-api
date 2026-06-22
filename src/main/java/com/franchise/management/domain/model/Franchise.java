@@ -17,26 +17,31 @@ public class Franchise {
     private final List<Branch> branches;
     private final LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    private final Long version;
 
     private Franchise(String id, String name, List<Branch> branches,
-                      LocalDateTime createdAt, LocalDateTime updatedAt) {
+                      LocalDateTime createdAt, LocalDateTime updatedAt, Long version) {
         this.id = id;
         this.name = name;
         this.branches = branches;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
+        this.version = version;
     }
 
-    /** Factory for a brand-new franchise; no id yet (assigned on persistence), empty branches. */
+    /** Factory for a brand-new franchise; no id/version yet (assigned on persistence), empty branches. */
     public static Franchise create(String name) {
         LocalDateTime now = LocalDateTime.now();
-        return new Franchise(null, name, new ArrayList<>(), now, now);
+        return new Franchise(null, name, new ArrayList<>(), now, now, null);
     }
 
-    /** Rehydrates an existing franchise (e.g. from persistence) keeping its id and timestamps. */
+    /**
+     * Rehydrates an existing franchise (e.g. from persistence) keeping its id, timestamps and
+     * optimistic-locking {@code version}.
+     */
     public static Franchise rehydrate(String id, String name, List<Branch> branches,
-                                      LocalDateTime createdAt, LocalDateTime updatedAt) {
-        return new Franchise(id, name, new ArrayList<>(branches), createdAt, updatedAt);
+                                      LocalDateTime createdAt, LocalDateTime updatedAt, Long version) {
+        return new Franchise(id, name, new ArrayList<>(branches), createdAt, updatedAt, version);
     }
 
     public void addBranch(Branch branch) {
@@ -80,5 +85,10 @@ public class Franchise {
 
     public LocalDateTime getUpdatedAt() {
         return updatedAt;
+    }
+
+    /** Optimistic-locking version; {@code null} for a not-yet-persisted aggregate. */
+    public Long getVersion() {
+        return version;
     }
 }

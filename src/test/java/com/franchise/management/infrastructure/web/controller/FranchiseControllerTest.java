@@ -49,7 +49,7 @@ class FranchiseControllerTest {
     void createFranchiseReturns201WithBody() throws Exception {
         when(service.createFranchise("Franquicia Norte"))
                 .thenReturn(Franchise.rehydrate("f1", "Franquicia Norte", List.of(),
-                        LocalDateTime.now(), LocalDateTime.now()));
+                        LocalDateTime.now(), LocalDateTime.now(), 0L));
 
         mockMvc.perform(post("/api/v1/franchises")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -200,7 +200,7 @@ class FranchiseControllerTest {
     void renameFranchiseReturns200() throws Exception {
         when(service.renameFranchise("f1", "Franquicia Sur"))
                 .thenReturn(Franchise.rehydrate("f1", "Franquicia Sur", List.of(),
-                        LocalDateTime.now(), LocalDateTime.now()));
+                        LocalDateTime.now(), LocalDateTime.now(), 0L));
 
         mockMvc.perform(patch("/api/v1/franchises/f1/name")
                         .contentType(MediaType.APPLICATION_JSON)
