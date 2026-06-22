@@ -1,0 +1,20 @@
+# Copy to terraform.tfvars and fill in. terraform.tfvars is gitignored (contains secrets).
+
+# --- MongoDB Atlas ---
+atlas_public_key  = "xxxxxxxx"
+atlas_private_key = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+atlas_org_id      = "0123456789abcdef01234567"
+db_password       = "change-me-strong-password"
+
+# --- AWS ---
+aws_region = "us-east-1"
+
+# Optional overrides (defaults shown)
+# project_name  = "franchises-api"
+# atlas_region  = "US_EAST_1"
+# db_username   = "franchises_app"
+# database_name = "franchises_db"
+# image_tag     = "latest"
+# allowed_cidr  = "0.0.0.0/0"
+# app_cpu       = "1024"
+# app_memory    = "2048"
