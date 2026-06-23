@@ -279,20 +279,6 @@ Además hay:
 
 ---
 
-## Flujo de commits sugerido
-
-```
-chore(config): use application.yml with Mongo env-based URI
-feat(domain): add franchise aggregate, value objects, exceptions and repository port
-feat(application): add FranchiseService orchestrating franchise use cases
-feat(persistence): add MongoDB document, mapper and repository adapter for franchise
-feat(web): add REST controller, DTOs with validation, error handling and OpenAPI
-build(docker): add multistage Dockerfile and docker-compose with mongo:7
-docs: add README with run instructions, endpoints and curl examples
-build(iac): add Terraform for MongoDB Atlas and AWS App Runner deployment
-```
-
----
 
 ## Posibles mejoras futuras
 
