@@ -144,6 +144,12 @@ terraform apply                                 # 3) Atlas + App Runner
 terraform output app_runner_service_url         # URL pública de la API
 ```
 
+> **Estado del despliegue.** La infraestructura se aprovisionó en la nube con Terraform: se crearon
+> el repositorio ECR (con la imagen publicada), los roles IAM y, en MongoDB Atlas, el proyecto, el
+> cluster M0 y el usuario de BD. La creación del servicio **App Runner** quedó a la espera de que AWS
+> levante una restricción administrativa de la cuenta (ajena al código); en cuanto se habilite, basta
+> con re-ejecutar `terraform apply` para crear el servicio restante y obtener la URL pública.
+
 ---
 
 ## Documentación interactiva (Swagger)
