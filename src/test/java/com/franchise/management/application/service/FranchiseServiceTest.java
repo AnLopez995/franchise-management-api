@@ -15,8 +15,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-
-import java.util.Optional;
+import reactor.core.publisher.Mono;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -43,19 +42,20 @@ class FranchiseServiceTest {
     private void lenientReturnSavedArgument() {
         org.mockito.Mockito.lenient()
                 .when(repository.save(any(Franchise.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
+                .thenAnswer(invocation -> Mono.just(invocation.getArgument(0)));
     }
 
     private Franchise existingFranchise() {
         Franchise franchise = Franchise.create("Franquicia Norte");
-        when(repository.findById("f1")).thenReturn(Optional.of(franchise));
+        when(repository.findById("f1")).thenReturn(Mono.just(franchise));
         return franchise;
     }
 
     @Test
     void createFranchisePersistsNewAggregate() {
-        Franchise result = service.createFranchise("Franquicia Norte");
+        Franchise result = service.createFranchise("Franquicia Norte").block();
 
+        assertThat(result).isNotNull();
         assertThat(result.getName()).isEqualTo("Franquicia Norte");
         assertThat(result.getBranches()).isEmpty();
         verify(repository).save(any(Franchise.class));
@@ -65,8 +65,9 @@ class FranchiseServiceTest {
     void addBranchAddsAndReturnsBranch() {
         existingFranchise();
 
-        Branch branch = service.addBranch("f1", "Sucursal Centro");
+        Branch branch = service.addBranch("f1", "Sucursal Centro").block();
 
+        assertThat(branch).isNotNull();
         assertThat(branch.getId()).isNotBlank();
         assertThat(branch.getName()).isEqualTo("Sucursal Centro");
         assertThat(branch.getProducts()).isEmpty();
@@ -75,9 +76,9 @@ class FranchiseServiceTest {
 
     @Test
     void addBranchOnMissingFranchiseThrows() {
-        when(repository.findById("missing")).thenReturn(Optional.empty());
+        when(repository.findById("missing")).thenReturn(Mono.empty());
 
-        assertThatThrownBy(() -> service.addBranch("missing", "Sucursal Centro"))
+        assertThatThrownBy(() -> service.addBranch("missing", "Sucursal Centro").block())
                 .isInstanceOf(FranchiseNotFoundException.class);
         verify(repository, never()).save(any());
     }
@@ -88,8 +89,9 @@ class FranchiseServiceTest {
         Branch branch = Branch.create("Sucursal Centro");
         franchise.addBranch(branch);
 
-        Product product = service.addProduct("f1", branch.getId(), "Producto A", 50);
+        Product product = service.addProduct("f1", branch.getId(), "Producto A", 50).block();
 
+        assertThat(product).isNotNull();
         assertThat(product.getName()).isEqualTo("Producto A");
         assertThat(product.getStock()).isEqualTo(50);
         verify(repository).save(any(Franchise.class));
@@ -99,7 +101,7 @@ class FranchiseServiceTest {
     void addProductOnMissingBranchThrows() {
         existingFranchise();
 
-        assertThatThrownBy(() -> service.addProduct("f1", "missing", "Producto A", 50))
+        assertThatThrownBy(() -> service.addProduct("f1", "missing", "Producto A", 50).block())
                 .isInstanceOf(BranchNotFoundException.class);
         verify(repository, never()).save(any());
     }
@@ -110,7 +112,7 @@ class FranchiseServiceTest {
         Branch branch = Branch.create("Sucursal Centro");
         franchise.addBranch(branch);
 
-        assertThatThrownBy(() -> service.addProduct("f1", branch.getId(), "Producto A", -1))
+        assertThatThrownBy(() -> service.addProduct("f1", branch.getId(), "Producto A", -1).block())
                 .isInstanceOf(BusinessValidationException.class);
     }
 
@@ -122,7 +124,7 @@ class FranchiseServiceTest {
         branch.addProduct(product);
         franchise.addBranch(branch);
 
-        service.removeProduct("f1", branch.getId(), product.getId());
+        service.removeProduct("f1", branch.getId(), product.getId()).block();
 
         assertThat(franchise.getBranch(branch.getId()).getProducts()).isEmpty();
         verify(repository).save(any(Franchise.class));
@@ -134,7 +136,7 @@ class FranchiseServiceTest {
         Branch branch = Branch.create("Sucursal Centro");
         franchise.addBranch(branch);
 
-        assertThatThrownBy(() -> service.removeProduct("f1", branch.getId(), "missing"))
+        assertThatThrownBy(() -> service.removeProduct("f1", branch.getId(), "missing").block())
                 .isInstanceOf(ProductNotFoundException.class);
     }
 
@@ -146,8 +148,9 @@ class FranchiseServiceTest {
         branch.addProduct(product);
         franchise.addBranch(branch);
 
-        Product updated = service.updateStock("f1", branch.getId(), product.getId(), 120);
+        Product updated = service.updateStock("f1", branch.getId(), product.getId(), 120).block();
 
+        assertThat(updated).isNotNull();
         assertThat(updated.getStock()).isEqualTo(120);
         verify(repository).save(any(Franchise.class));
     }
@@ -160,7 +163,7 @@ class FranchiseServiceTest {
         branch.addProduct(product);
         franchise.addBranch(branch);
 
-        assertThatThrownBy(() -> service.updateStock("f1", branch.getId(), product.getId(), -3))
+        assertThatThrownBy(() -> service.updateStock("f1", branch.getId(), product.getId(), -3).block())
                 .isInstanceOf(BusinessValidationException.class);
     }
 
@@ -181,7 +184,7 @@ class FranchiseServiceTest {
 
         franchise.addBranch(Branch.create("Sucursal Vacia")); // no products -> excluded
 
-        var result = service.getTopStockProducts("f1");
+        var result = service.getTopStockProducts("f1").collectList().block();
 
         assertThat(result).containsExactlyInAnyOrder(
                 TopStockProduct.of(center, centerTop),
@@ -191,9 +194,9 @@ class FranchiseServiceTest {
 
     @Test
     void getTopStockProductsOnMissingFranchiseThrows() {
-        when(repository.findById("missing")).thenReturn(Optional.empty());
+        when(repository.findById("missing")).thenReturn(Mono.empty());
 
-        assertThatThrownBy(() -> service.getTopStockProducts("missing"))
+        assertThatThrownBy(() -> service.getTopStockProducts("missing").collectList().block())
                 .isInstanceOf(FranchiseNotFoundException.class);
     }
 
@@ -201,8 +204,9 @@ class FranchiseServiceTest {
     void renameFranchiseUpdatesName() {
         existingFranchise();
 
-        Franchise result = service.renameFranchise("f1", "Franquicia Sur");
+        Franchise result = service.renameFranchise("f1", "Franquicia Sur").block();
 
+        assertThat(result).isNotNull();
         assertThat(result.getName()).isEqualTo("Franquicia Sur");
         verify(repository).save(any(Franchise.class));
     }
@@ -213,8 +217,9 @@ class FranchiseServiceTest {
         Branch branch = Branch.create("Sucursal Centro");
         franchise.addBranch(branch);
 
-        Branch result = service.renameBranch("f1", branch.getId(), "Sucursal Sur");
+        Branch result = service.renameBranch("f1", branch.getId(), "Sucursal Sur").block();
 
+        assertThat(result).isNotNull();
         assertThat(result.getName()).isEqualTo("Sucursal Sur");
         verify(repository).save(any(Franchise.class));
     }
@@ -227,8 +232,9 @@ class FranchiseServiceTest {
         branch.addProduct(product);
         franchise.addBranch(branch);
 
-        Product result = service.renameProduct("f1", branch.getId(), product.getId(), "Producto B");
+        Product result = service.renameProduct("f1", branch.getId(), product.getId(), "Producto B").block();
 
+        assertThat(result).isNotNull();
         assertThat(result.getName()).isEqualTo("Producto B");
         verify(repository).save(any(Franchise.class));
     }
@@ -241,7 +247,7 @@ class FranchiseServiceTest {
         branch.addProduct(product);
         franchise.addBranch(branch);
 
-        service.updateStock("f1", branch.getId(), product.getId(), 120);
+        service.updateStock("f1", branch.getId(), product.getId(), 120).block();
 
         ArgumentCaptor<Franchise> captor = ArgumentCaptor.forClass(Franchise.class);
         verify(repository).save(captor.capture());

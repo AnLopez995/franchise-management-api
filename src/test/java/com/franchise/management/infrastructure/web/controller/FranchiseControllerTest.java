@@ -1,19 +1,21 @@
 package com.franchise.management.infrastructure.web.controller;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.franchise.management.application.service.FranchiseService;
 import com.franchise.management.domain.exception.BranchNotFoundException;
 import com.franchise.management.domain.exception.FranchiseNotFoundException;
+import com.franchise.management.domain.exception.ProductNotFoundException;
 import com.franchise.management.domain.model.Branch;
 import com.franchise.management.domain.model.Franchise;
 import com.franchise.management.domain.model.Product;
 import com.franchise.management.domain.model.TopStockProduct;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.test.autoconfigure.web.reactive.WebFluxTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.reactive.server.WebTestClient;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -22,217 +24,234 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.doNothing;
-import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@WebMvcTest(FranchiseController.class)
+@WebFluxTest(FranchiseController.class)
 class FranchiseControllerTest {
 
     @Autowired
-    private MockMvc mockMvc;
-
-    @Autowired
-    private ObjectMapper objectMapper;
+    private WebTestClient webTestClient;
 
     @MockitoBean
     private FranchiseService service;
 
     @Test
-    void createFranchiseReturns201WithBody() throws Exception {
+    void createFranchiseReturns201WithBody() {
         when(service.createFranchise("Franquicia Norte"))
-                .thenReturn(Franchise.rehydrate("f1", "Franquicia Norte", List.of(),
-                        LocalDateTime.now(), LocalDateTime.now(), 0L));
+                .thenReturn(Mono.just(Franchise.rehydrate("f1", "Franquicia Norte", List.of(),
+                        LocalDateTime.now(), LocalDateTime.now(), 0L)));
 
-        mockMvc.perform(post("/api/v1/franchises")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {"name": "Franquicia Norte"}"""))
-                .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.id").value("f1"))
-                .andExpect(jsonPath("$.name").value("Franquicia Norte"))
-                .andExpect(jsonPath("$.branches").isEmpty());
+        webTestClient.post().uri("/api/v1/franchises")
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue("""
+                        {"name": "Franquicia Norte"}""")
+                .exchange()
+                .expectStatus().isCreated()
+                .expectBody()
+                .jsonPath("$.id").isEqualTo("f1")
+                .jsonPath("$.name").isEqualTo("Franquicia Norte")
+                .jsonPath("$.branches").isEmpty();
     }
 
     @Test
-    void createFranchiseWithBlankNameReturns400() throws Exception {
-        mockMvc.perform(post("/api/v1/franchises")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {"name": "  "}"""))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.status").value(400))
-                .andExpect(jsonPath("$.error").value("BAD_REQUEST"));
+    void createFranchiseWithBlankNameReturns400() {
+        webTestClient.post().uri("/api/v1/franchises")
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue("""
+                        {"name": "  "}""")
+                .exchange()
+                .expectStatus().isBadRequest()
+                .expectBody()
+                .jsonPath("$.status").isEqualTo(400)
+                .jsonPath("$.error").isEqualTo("BAD_REQUEST");
     }
 
     @Test
-    void addBranchReturns201() throws Exception {
+    void addBranchReturns201() {
         when(service.addBranch(eq("f1"), eq("Sucursal Centro")))
-                .thenReturn(Branch.create("Sucursal Centro"));
+                .thenReturn(Mono.just(Branch.create("Sucursal Centro")));
 
-        mockMvc.perform(post("/api/v1/franchises/f1/branches")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {"name": "Sucursal Centro"}"""))
-                .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.name").value("Sucursal Centro"))
-                .andExpect(jsonPath("$.products").isEmpty());
+        webTestClient.post().uri("/api/v1/franchises/f1/branches")
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue("""
+                        {"name": "Sucursal Centro"}""")
+                .exchange()
+                .expectStatus().isCreated()
+                .expectBody()
+                .jsonPath("$.name").isEqualTo("Sucursal Centro")
+                .jsonPath("$.products").isEmpty();
     }
 
     @Test
-    void addBranchOnMissingFranchiseReturns404() throws Exception {
+    void addBranchOnMissingFranchiseReturns404() {
         when(service.addBranch(eq("missing"), any()))
-                .thenThrow(new FranchiseNotFoundException("missing"));
+                .thenReturn(Mono.error(new FranchiseNotFoundException("missing")));
 
-        mockMvc.perform(post("/api/v1/franchises/missing/branches")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {"name": "Sucursal Centro"}"""))
-                .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.status").value(404))
-                .andExpect(jsonPath("$.error").value("NOT_FOUND"))
-                .andExpect(jsonPath("$.message").value("Franchise not found with id: missing"))
-                .andExpect(jsonPath("$.path").value("/api/v1/franchises/missing/branches"))
-                .andExpect(jsonPath("$.timestamp").exists());
+        webTestClient.post().uri("/api/v1/franchises/missing/branches")
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue("""
+                        {"name": "Sucursal Centro"}""")
+                .exchange()
+                .expectStatus().isNotFound()
+                .expectBody()
+                .jsonPath("$.status").isEqualTo(404)
+                .jsonPath("$.error").isEqualTo("NOT_FOUND")
+                .jsonPath("$.message").isEqualTo("Franchise not found with id: missing")
+                .jsonPath("$.path").isEqualTo("/api/v1/franchises/missing/branches")
+                .jsonPath("$.timestamp").exists();
     }
 
     @Test
-    void addProductReturns201() throws Exception {
+    void addProductReturns201() {
         when(service.addProduct(eq("f1"), eq("b1"), eq("Producto A"), eq(50)))
-                .thenReturn(Product.create("Producto A", 50));
+                .thenReturn(Mono.just(Product.create("Producto A", 50)));
 
-        mockMvc.perform(post("/api/v1/franchises/f1/branches/b1/products")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {"name": "Producto A", "stock": 50}"""))
-                .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.name").value("Producto A"))
-                .andExpect(jsonPath("$.stock").value(50));
+        webTestClient.post().uri("/api/v1/franchises/f1/branches/b1/products")
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue("""
+                        {"name": "Producto A", "stock": 50}""")
+                .exchange()
+                .expectStatus().isCreated()
+                .expectBody()
+                .jsonPath("$.name").isEqualTo("Producto A")
+                .jsonPath("$.stock").isEqualTo(50);
     }
 
     @Test
-    void addProductWithNegativeStockReturns400() throws Exception {
-        mockMvc.perform(post("/api/v1/franchises/f1/branches/b1/products")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {"name": "Producto A", "stock": -1}"""))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.status").value(400));
+    void addProductWithNegativeStockReturns400() {
+        webTestClient.post().uri("/api/v1/franchises/f1/branches/b1/products")
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue("""
+                        {"name": "Producto A", "stock": -1}""")
+                .exchange()
+                .expectStatus().isBadRequest()
+                .expectBody()
+                .jsonPath("$.status").isEqualTo(400);
     }
 
     @Test
-    void addProductOnMissingBranchReturns404() throws Exception {
+    void addProductOnMissingBranchReturns404() {
         when(service.addProduct(eq("f1"), eq("missing"), anyString(), anyInt()))
-                .thenThrow(new BranchNotFoundException("missing"));
+                .thenReturn(Mono.error(new BranchNotFoundException("missing")));
 
-        mockMvc.perform(post("/api/v1/franchises/f1/branches/missing/products")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {"name": "Producto A", "stock": 50}"""))
-                .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.error").value("NOT_FOUND"));
+        webTestClient.post().uri("/api/v1/franchises/f1/branches/missing/products")
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue("""
+                        {"name": "Producto A", "stock": 50}""")
+                .exchange()
+                .expectStatus().isNotFound()
+                .expectBody()
+                .jsonPath("$.error").isEqualTo("NOT_FOUND");
     }
 
     @Test
-    void deleteProductReturns204() throws Exception {
-        doNothing().when(service).removeProduct("f1", "b1", "p1");
+    void deleteProductReturns204() {
+        when(service.removeProduct("f1", "b1", "p1")).thenReturn(Mono.empty());
 
-        mockMvc.perform(delete("/api/v1/franchises/f1/branches/b1/products/p1"))
-                .andExpect(status().isNoContent());
+        webTestClient.delete().uri("/api/v1/franchises/f1/branches/b1/products/p1")
+                .exchange()
+                .expectStatus().isNoContent();
 
         verify(service).removeProduct("f1", "b1", "p1");
     }
 
     @Test
-    void deleteMissingProductReturns404() throws Exception {
-        doThrow(new com.franchise.management.domain.exception.ProductNotFoundException("p1"))
-                .when(service).removeProduct("f1", "b1", "p1");
+    void deleteMissingProductReturns404() {
+        when(service.removeProduct("f1", "b1", "p1"))
+                .thenReturn(Mono.error(new ProductNotFoundException("p1")));
 
-        mockMvc.perform(delete("/api/v1/franchises/f1/branches/b1/products/p1"))
-                .andExpect(status().isNotFound());
+        webTestClient.delete().uri("/api/v1/franchises/f1/branches/b1/products/p1")
+                .exchange()
+                .expectStatus().isNotFound();
     }
 
     @Test
-    void updateStockReturns200() throws Exception {
+    void updateStockReturns200() {
         Product product = Product.create("Producto A", 50);
         product.changeStock(120);
-        when(service.updateStock(eq("f1"), eq("b1"), eq("p1"), eq(120))).thenReturn(product);
+        when(service.updateStock(eq("f1"), eq("b1"), eq("p1"), eq(120))).thenReturn(Mono.just(product));
 
-        mockMvc.perform(patch("/api/v1/franchises/f1/branches/b1/products/p1/stock")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {"stock": 120}"""))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.stock").value(120));
+        webTestClient.patch().uri("/api/v1/franchises/f1/branches/b1/products/p1/stock")
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue("""
+                        {"stock": 120}""")
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody()
+                .jsonPath("$.stock").isEqualTo(120);
     }
 
     @Test
-    void updateStockWithNegativeValueReturns400() throws Exception {
-        mockMvc.perform(patch("/api/v1/franchises/f1/branches/b1/products/p1/stock")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {"stock": -5}"""))
-                .andExpect(status().isBadRequest());
+    void updateStockWithNegativeValueReturns400() {
+        webTestClient.patch().uri("/api/v1/franchises/f1/branches/b1/products/p1/stock")
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue("""
+                        {"stock": -5}""")
+                .exchange()
+                .expectStatus().isBadRequest();
     }
 
     @Test
-    void topStockProductsReturns200WithList() throws Exception {
-        when(service.getTopStockProducts("f1")).thenReturn(List.of(
+    void topStockProductsReturns200WithList() {
+        when(service.getTopStockProducts("f1")).thenReturn(Flux.just(
                 new TopStockProduct("b1", "Sucursal Centro", "p1", "Producto A", 120)));
 
-        mockMvc.perform(get("/api/v1/franchises/f1/branches/top-stock-products"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].branchId").value("b1"))
-                .andExpect(jsonPath("$[0].branchName").value("Sucursal Centro"))
-                .andExpect(jsonPath("$[0].productId").value("p1"))
-                .andExpect(jsonPath("$[0].productName").value("Producto A"))
-                .andExpect(jsonPath("$[0].stock").value(120));
+        webTestClient.get().uri("/api/v1/franchises/f1/branches/top-stock-products")
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody()
+                .jsonPath("$[0].branchId").isEqualTo("b1")
+                .jsonPath("$[0].branchName").isEqualTo("Sucursal Centro")
+                .jsonPath("$[0].productId").isEqualTo("p1")
+                .jsonPath("$[0].productName").isEqualTo("Producto A")
+                .jsonPath("$[0].stock").isEqualTo(120);
     }
 
     @Test
-    void renameFranchiseReturns200() throws Exception {
+    void renameFranchiseReturns200() {
         when(service.renameFranchise("f1", "Franquicia Sur"))
-                .thenReturn(Franchise.rehydrate("f1", "Franquicia Sur", List.of(),
-                        LocalDateTime.now(), LocalDateTime.now(), 0L));
+                .thenReturn(Mono.just(Franchise.rehydrate("f1", "Franquicia Sur", List.of(),
+                        LocalDateTime.now(), LocalDateTime.now(), 0L)));
 
-        mockMvc.perform(patch("/api/v1/franchises/f1/name")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {"name": "Franquicia Sur"}"""))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.name").value("Franquicia Sur"));
+        webTestClient.patch().uri("/api/v1/franchises/f1/name")
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue("""
+                        {"name": "Franquicia Sur"}""")
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody()
+                .jsonPath("$.name").isEqualTo("Franquicia Sur");
     }
 
     @Test
-    void renameBranchReturns200() throws Exception {
+    void renameBranchReturns200() {
         Branch branch = Branch.create("Sucursal Sur");
-        when(service.renameBranch(eq("f1"), eq("b1"), eq("Sucursal Sur"))).thenReturn(branch);
+        when(service.renameBranch(eq("f1"), eq("b1"), eq("Sucursal Sur"))).thenReturn(Mono.just(branch));
 
-        mockMvc.perform(patch("/api/v1/franchises/f1/branches/b1/name")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {"name": "Sucursal Sur"}"""))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.name").value("Sucursal Sur"));
+        webTestClient.patch().uri("/api/v1/franchises/f1/branches/b1/name")
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue("""
+                        {"name": "Sucursal Sur"}""")
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody()
+                .jsonPath("$.name").isEqualTo("Sucursal Sur");
     }
 
     @Test
-    void renameProductReturns200() throws Exception {
+    void renameProductReturns200() {
         Product product = Product.create("Producto B", 50);
-        when(service.renameProduct(eq("f1"), eq("b1"), eq("p1"), eq("Producto B"))).thenReturn(product);
+        when(service.renameProduct(eq("f1"), eq("b1"), eq("p1"), eq("Producto B")))
+                .thenReturn(Mono.just(product));
 
-        mockMvc.perform(patch("/api/v1/franchises/f1/branches/b1/products/p1/name")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {"name": "Producto B"}"""))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.name").value("Producto B"));
+        webTestClient.patch().uri("/api/v1/franchises/f1/branches/b1/products/p1/name")
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue("""
+                        {"name": "Producto B"}""")
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody()
+                .jsonPath("$.name").isEqualTo("Producto B");
     }
 }

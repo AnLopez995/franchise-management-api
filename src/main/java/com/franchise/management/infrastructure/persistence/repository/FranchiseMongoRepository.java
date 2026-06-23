@@ -1,11 +1,11 @@
 package com.franchise.management.infrastructure.persistence.repository;
 
 import com.franchise.management.infrastructure.persistence.document.FranchiseDocument;
-import org.springframework.data.mongodb.repository.MongoRepository;
+import org.springframework.data.mongodb.repository.ReactiveMongoRepository;
 
 /**
- * Spring Data MongoDB repository for {@link FranchiseDocument}. CRUD is enough since the
- * whole aggregate lives in a single document.
+ * Spring Data reactive MongoDB repository for {@link FranchiseDocument}. CRUD is enough since
+ * the whole aggregate lives in a single document.
  */
-public interface FranchiseMongoRepository extends MongoRepository<FranchiseDocument, String> {
+public interface FranchiseMongoRepository extends ReactiveMongoRepository<FranchiseDocument, String> {
 }

@@ -1,15 +1,15 @@
 package com.franchise.management.infrastructure.web.exception;
 
 import com.franchise.management.infrastructure.web.dto.response.ErrorResponse;
-import jakarta.servlet.http.HttpServletRequest;
 import org.junit.jupiter.api.Test;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.mock.http.server.reactive.MockServerHttpRequest;
+import org.springframework.mock.web.server.MockServerWebExchange;
+import org.springframework.web.server.ServerWebExchange;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
 class GlobalExceptionHandlerTest {
 
@@ -17,11 +17,11 @@ class GlobalExceptionHandlerTest {
 
     @Test
     void optimisticLockingFailureMapsToConflict() {
-        HttpServletRequest request = mock(HttpServletRequest.class);
-        when(request.getRequestURI()).thenReturn("/api/v1/franchises/f1/name");
+        ServerWebExchange exchange = MockServerWebExchange.from(
+                MockServerHttpRequest.patch("/api/v1/franchises/f1/name"));
 
         ResponseEntity<ErrorResponse> response = handler.handleOptimisticLocking(
-                new OptimisticLockingFailureException("stale"), request);
+                new OptimisticLockingFailureException("stale"), exchange);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
         ErrorResponse body = response.getBody();

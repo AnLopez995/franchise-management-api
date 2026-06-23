@@ -1,8 +1,12 @@
 # Franchises API
 
-API REST para gestionar **franquicias**, sus **sucursales** y los **productos** ofertados en
-cada sucursal. Prueba técnica backend desarrollada con Java 17, Spring Boot 3 y MongoDB,
-siguiendo una arquitectura limpia por capas.
+API REST **reactiva** para gestionar **franquicias**, sus **sucursales** y los **productos**
+ofertados en cada sucursal. Prueba técnica backend desarrollada con Java 17, Spring Boot 3
+(WebFlux) y MongoDB reactivo, siguiendo una arquitectura limpia por capas.
+
+> La solución principal (rama `main`) es **no bloqueante de extremo a extremo** (Spring WebFlux +
+> driver reactivo de MongoDB). La rama `mvc-blocking` conserva la misma solución sobre Spring MVC
+> bloqueante, por si se quiere comparar ambos enfoques.
 
 Una franquicia tiene un nombre y una lista de sucursales; cada sucursal tiene un nombre y una
 lista de productos; cada producto tiene un nombre y una cantidad de stock.
@@ -13,11 +17,12 @@ lista de productos; cada producto tiene un nombre y una cantidad de stock.
 
 - **Java 17** · **Spring Boot 3.5**
 - **Maven** (con wrapper `mvnw`)
-- **Spring Web** (REST, MVC)
-- **Spring Data MongoDB**
+- **Spring WebFlux** (REST reactivo, no bloqueante)
+- **Spring Data MongoDB Reactive**
+- **Project Reactor** (`Mono` / `Flux`)
 - **Bean Validation** (Jakarta)
 - **springdoc-openapi** (Swagger UI)
-- **JUnit 5** · **Mockito** · **MockMvc**
+- **JUnit 5** · **Mockito** · **Reactor Test** (`StepVerifier`) · **WebTestClient**
 - **Docker** · **Docker Compose** · **MongoDB 7**
 - **Terraform** (IaC) · **AWS App Runner** · **MongoDB Atlas** (despliegue cloud)
 
@@ -54,6 +59,10 @@ com.franchise.management
 **Decisión clave:** la `Franchise` es la raíz del agregado. El servicio carga el agregado
 completo, aplica el cambio sobre el modelo de dominio, actualiza `updatedAt` y persiste todo el
 documento. Las sucursales y productos se guardan **embebidos** dentro del documento de la franquicia.
+
+El flujo es **reactivo de extremo a extremo**: el puerto devuelve `Mono`/`Flux`, el servicio compone
+con `flatMap`/`switchIfEmpty` y el controller expone tipos reactivos. El dominio sigue siendo objetos
+planos; la única abstracción reactiva que toca es Project Reactor (no Spring ni Mongo).
 
 ---
 
@@ -246,8 +255,9 @@ curl -X PATCH http://localhost:8080/api/v1/franchises/<franchiseId>/name \
 ./mvnw clean test
 ```
 
-La suite cubre dominio, servicio (con el puerto mockeado), mapeo de persistencia y la capa web
-(`@WebMvcTest` + MockMvc). Los tests unitarios **no requieren** una instancia de MongoDB.
+La suite cubre dominio, servicio (con el puerto mockeado, verificado con `StepVerifier`/`block`),
+mapeo de persistencia y la capa web (`@WebFluxTest` + `WebTestClient`). Los tests unitarios
+**no requieren** una instancia de MongoDB.
 
 Además hay:
 
@@ -263,6 +273,9 @@ Además hay:
 
 ## Decisiones técnicas
 
+- **Programación reactiva.** Toda la pila es no bloqueante (WebFlux + MongoDB reactivo). El puerto
+  de persistencia devuelve `Mono`/`Flux`, de modo que el dominio expone una única abstracción
+  reactiva (Project Reactor) sin acoplarse a Spring ni a Mongo; el test de ArchUnit lo verifica.
 - **Agregado y embebido.** `Franchise` es la raíz; sucursales y productos se guardan embebidos en
   un único documento. Simplifica la consistencia (una sola escritura por operación) y encaja con
   el tamaño esperado del modelo.

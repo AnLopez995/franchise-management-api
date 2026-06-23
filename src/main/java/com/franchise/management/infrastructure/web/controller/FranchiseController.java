@@ -22,12 +22,12 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-
-import java.util.List;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 /**
  * REST entry point for the franchises API. Holds no business logic: it validates input,
- * delegates to {@link FranchiseService} and maps the result to response DTOs.
+ * delegates to {@link FranchiseService} and maps the reactive result to response DTOs.
  */
 @RestController
 @RequestMapping("/api/v1/franchises")
@@ -40,79 +40,84 @@ public class FranchiseController {
     }
 
     @PostMapping
-    public ResponseEntity<FranchiseResponse> createFranchise(
+    public Mono<ResponseEntity<FranchiseResponse>> createFranchise(
             @Valid @RequestBody CreateFranchiseRequest request) {
-        var franchise = service.createFranchise(request.name());
-        return ResponseEntity.status(HttpStatus.CREATED).body(FranchiseWebMapper.toResponse(franchise));
+        return service.createFranchise(request.name())
+                .map(FranchiseWebMapper::toResponse)
+                .map(body -> ResponseEntity.status(HttpStatus.CREATED).body(body));
     }
 
     @PostMapping("/{franchiseId}/branches")
-    public ResponseEntity<BranchResponse> addBranch(
+    public Mono<ResponseEntity<BranchResponse>> addBranch(
             @PathVariable String franchiseId,
             @Valid @RequestBody CreateBranchRequest request) {
-        var branch = service.addBranch(franchiseId, request.name());
-        return ResponseEntity.status(HttpStatus.CREATED).body(FranchiseWebMapper.toResponse(branch));
+        return service.addBranch(franchiseId, request.name())
+                .map(FranchiseWebMapper::toResponse)
+                .map(body -> ResponseEntity.status(HttpStatus.CREATED).body(body));
     }
 
     @PostMapping("/{franchiseId}/branches/{branchId}/products")
-    public ResponseEntity<ProductResponse> addProduct(
+    public Mono<ResponseEntity<ProductResponse>> addProduct(
             @PathVariable String franchiseId,
             @PathVariable String branchId,
             @Valid @RequestBody CreateProductRequest request) {
-        var product = service.addProduct(franchiseId, branchId, request.name(), request.stock());
-        return ResponseEntity.status(HttpStatus.CREATED).body(FranchiseWebMapper.toResponse(product));
+        return service.addProduct(franchiseId, branchId, request.name(), request.stock())
+                .map(FranchiseWebMapper::toResponse)
+                .map(body -> ResponseEntity.status(HttpStatus.CREATED).body(body));
     }
 
     @DeleteMapping("/{franchiseId}/branches/{branchId}/products/{productId}")
-    public ResponseEntity<Void> removeProduct(
+    public Mono<ResponseEntity<Void>> removeProduct(
             @PathVariable String franchiseId,
             @PathVariable String branchId,
             @PathVariable String productId) {
-        service.removeProduct(franchiseId, branchId, productId);
-        return ResponseEntity.noContent().build();
+        return service.removeProduct(franchiseId, branchId, productId)
+                .thenReturn(ResponseEntity.noContent().build());
     }
 
     @PatchMapping("/{franchiseId}/branches/{branchId}/products/{productId}/stock")
-    public ResponseEntity<ProductResponse> updateStock(
+    public Mono<ResponseEntity<ProductResponse>> updateStock(
             @PathVariable String franchiseId,
             @PathVariable String branchId,
             @PathVariable String productId,
             @Valid @RequestBody UpdateStockRequest request) {
-        var product = service.updateStock(franchiseId, branchId, productId, request.stock());
-        return ResponseEntity.ok(FranchiseWebMapper.toResponse(product));
+        return service.updateStock(franchiseId, branchId, productId, request.stock())
+                .map(FranchiseWebMapper::toResponse)
+                .map(ResponseEntity::ok);
     }
 
     @GetMapping("/{franchiseId}/branches/top-stock-products")
-    public ResponseEntity<List<TopStockProductResponse>> topStockProducts(
-            @PathVariable String franchiseId) {
-        var products = service.getTopStockProducts(franchiseId);
-        return ResponseEntity.ok(FranchiseWebMapper.toTopStockResponses(products));
+    public Flux<TopStockProductResponse> topStockProducts(@PathVariable String franchiseId) {
+        return service.getTopStockProducts(franchiseId).map(FranchiseWebMapper::toResponse);
     }
 
     @PatchMapping("/{franchiseId}/name")
-    public ResponseEntity<FranchiseResponse> renameFranchise(
+    public Mono<ResponseEntity<FranchiseResponse>> renameFranchise(
             @PathVariable String franchiseId,
             @Valid @RequestBody UpdateNameRequest request) {
-        var franchise = service.renameFranchise(franchiseId, request.name());
-        return ResponseEntity.ok(FranchiseWebMapper.toResponse(franchise));
+        return service.renameFranchise(franchiseId, request.name())
+                .map(FranchiseWebMapper::toResponse)
+                .map(ResponseEntity::ok);
     }
 
     @PatchMapping("/{franchiseId}/branches/{branchId}/name")
-    public ResponseEntity<BranchResponse> renameBranch(
+    public Mono<ResponseEntity<BranchResponse>> renameBranch(
             @PathVariable String franchiseId,
             @PathVariable String branchId,
             @Valid @RequestBody UpdateNameRequest request) {
-        var branch = service.renameBranch(franchiseId, branchId, request.name());
-        return ResponseEntity.ok(FranchiseWebMapper.toResponse(branch));
+        return service.renameBranch(franchiseId, branchId, request.name())
+                .map(FranchiseWebMapper::toResponse)
+                .map(ResponseEntity::ok);
     }
 
     @PatchMapping("/{franchiseId}/branches/{branchId}/products/{productId}/name")
-    public ResponseEntity<ProductResponse> renameProduct(
+    public Mono<ResponseEntity<ProductResponse>> renameProduct(
             @PathVariable String franchiseId,
             @PathVariable String branchId,
             @PathVariable String productId,
             @Valid @RequestBody UpdateNameRequest request) {
-        var product = service.renameProduct(franchiseId, branchId, productId, request.name());
-        return ResponseEntity.ok(FranchiseWebMapper.toResponse(product));
+        return service.renameProduct(franchiseId, branchId, productId, request.name())
+                .map(FranchiseWebMapper::toResponse)
+                .map(ResponseEntity::ok);
     }
 }

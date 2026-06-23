@@ -8,10 +8,10 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import reactor.core.publisher.Mono;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -37,15 +37,16 @@ class FranchiseRepositoryAdapterTest {
         when(mongoRepository.save(any(FranchiseDocument.class)))
                 .thenAnswer(invocation -> {
                     FranchiseDocument input = invocation.getArgument(0);
-                    return new FranchiseDocument("generated-id", input.name(),
-                            input.branches(), input.createdAt(), input.updatedAt(), 0L);
+                    return Mono.just(new FranchiseDocument("generated-id", input.name(),
+                            input.branches(), input.createdAt(), input.updatedAt(), 0L));
                 });
 
-        Franchise result = adapter.save(franchise);
+        Franchise result = adapter.save(franchise).block();
 
         ArgumentCaptor<FranchiseDocument> captor = ArgumentCaptor.forClass(FranchiseDocument.class);
         verify(mongoRepository).save(captor.capture());
         assertThat(captor.getValue().name()).isEqualTo("Franquicia Norte");
+        assertThat(result).isNotNull();
         assertThat(result.getId()).isEqualTo("generated-id");
         assertThat(result.getName()).isEqualTo("Franquicia Norte");
     }
@@ -55,19 +56,19 @@ class FranchiseRepositoryAdapterTest {
         LocalDateTime now = LocalDateTime.now();
         FranchiseDocument document = new FranchiseDocument("f1", "Franquicia Norte",
                 List.of(), now, now, 0L);
-        when(mongoRepository.findById("f1")).thenReturn(Optional.of(document));
+        when(mongoRepository.findById("f1")).thenReturn(Mono.just(document));
 
-        Optional<Franchise> result = adapter.findById("f1");
+        Franchise result = adapter.findById("f1").block();
 
-        assertThat(result).isPresent();
-        assertThat(result.get().getId()).isEqualTo("f1");
-        assertThat(result.get().getName()).isEqualTo("Franquicia Norte");
+        assertThat(result).isNotNull();
+        assertThat(result.getId()).isEqualTo("f1");
+        assertThat(result.getName()).isEqualTo("Franquicia Norte");
     }
 
     @Test
     void findByIdReturnsEmptyWhenAbsent() {
-        when(mongoRepository.findById("missing")).thenReturn(Optional.empty());
+        when(mongoRepository.findById("missing")).thenReturn(Mono.empty());
 
-        assertThat(adapter.findById("missing")).isEmpty();
+        assertThat(adapter.findById("missing").blockOptional()).isEmpty();
     }
 }

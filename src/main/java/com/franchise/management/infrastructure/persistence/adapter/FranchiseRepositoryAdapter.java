@@ -5,11 +5,10 @@ import com.franchise.management.domain.port.FranchiseRepositoryPort;
 import com.franchise.management.infrastructure.persistence.mapper.FranchiseDocumentMapper;
 import com.franchise.management.infrastructure.persistence.repository.FranchiseMongoRepository;
 import org.springframework.stereotype.Repository;
-
-import java.util.Optional;
+import reactor.core.publisher.Mono;
 
 /**
- * Adapts the MongoDB repository to the domain {@link FranchiseRepositoryPort}, mapping
+ * Adapts the reactive MongoDB repository to the domain {@link FranchiseRepositoryPort}, mapping
  * between the aggregate and its document representation on the way in and out.
  */
 @Repository
@@ -22,13 +21,13 @@ public class FranchiseRepositoryAdapter implements FranchiseRepositoryPort {
     }
 
     @Override
-    public Franchise save(Franchise franchise) {
-        var saved = mongoRepository.save(FranchiseDocumentMapper.toDocument(franchise));
-        return FranchiseDocumentMapper.toDomain(saved);
+    public Mono<Franchise> save(Franchise franchise) {
+        return mongoRepository.save(FranchiseDocumentMapper.toDocument(franchise))
+                .map(FranchiseDocumentMapper::toDomain);
     }
 
     @Override
-    public Optional<Franchise> findById(String id) {
+    public Mono<Franchise> findById(String id) {
         return mongoRepository.findById(id).map(FranchiseDocumentMapper::toDomain);
     }
 }
